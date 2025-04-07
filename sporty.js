@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 const readline = require('readline');
 
 (async () => {
-    const browser = await chromium.launchPersistentContext('/home/kali/Github/sportybet', {
+    const browser = await chromium.launchPersistentContext('/home/runner/sportybet', {
         headless: false,
         args: ['--no-sandbox']
     });
