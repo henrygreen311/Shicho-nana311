@@ -3,7 +3,7 @@ const readline = require('readline');
 
 (async () => {
     const browser = await chromium.launchPersistentContext('/home/runner/sportybet', {
-        headless: true,
+        headless: false,
         args: ['--no-sandbox']
     });
 
@@ -51,7 +51,7 @@ const readline = require('readline');
 
         // Force looking for the turbo iframe inside the first iframe
         const turboIframeSelector = 'iframe.turbo-games-iframe';
-        const turboIframeElement = await frame.waitForSelector(turboIframeSelector, { timeout: 15000 });
+        const turboIframeElement = await frame.waitForSelector(turboIframeSelector, { timeout: 60000 });
 
         if (turboIframeElement) {
             console.log("Found the turbo iframe inside the first iframe!");
