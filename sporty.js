@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 const readline = require('readline');
 
 (async () => {
-    const browser = await chromium.launchPersistentContext('/home/runner/sportybet', {
+    const browser = await chromium.launch({
         headless: false,
         args: ['--no-sandbox']
     });
@@ -10,16 +10,36 @@ const readline = require('readline');
     const page = await browser.newPage();
 
     try {
+        // Navigate to the login page
+        await page.goto('https://www.sportybet.com/ng/login', {
+            waitUntil: 'domcontentloaded'
+        });
+
+        // Input phone number
+        const phoneInput = await page.waitForSelector('input[name="phone"]', { timeout: 15000 });
+        await phoneInput.fill('9120183273');
+        console.log("Entered phone number.");
+
+        // Input password
+        const passwordInput = await page.waitForSelector('input[type="password"]', { timeout: 15000 });
+        await passwordInput.fill('Edmond99');
+        console.log("Entered password.");
+
+        // Click login button
+        const loginButton = await page.waitForSelector('button.af-button--primary', { timeout: 15000 });
+        await loginButton.click();
+        console.log("Clicked on the login button.");
+
+        // Wait for 5 seconds after login
+        await page.waitForTimeout(5000);
+        console.log("Waited for 5 seconds before proceeding with the next URL.");
+
+        // Proceed to the second URL
         await page.goto('https://www.sportybet.com/ng/games?source=TopRibbon', {
             waitUntil: 'domcontentloaded'
         });
 
-        const loginButton = await page.$('button.m-btn-login[name="logIn"]');
-        if (loginButton && await loginButton.isVisible()) {
-            console.log("Oops we are logged out tryna logging back");
-            await loginButton.click();
-        }
-
+        // Continue the rest of the script from here...
         const iframeElement = await page.waitForSelector('iframe#games-lobby', { timeout: 15000 });
         const frame = await iframeElement.contentFrame();
 
