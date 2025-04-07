@@ -51,7 +51,7 @@ const readline = require('readline');
 
         // Force looking for the turbo iframe inside the first iframe
         const turboIframeSelector = 'iframe.turbo-games-iframe';
-        const turboIframeElement = await frame.waitForSelector(turboIframeSelector, { timeout: 60000 });
+        const turboIframeElement = await frame.waitForSelector(turboIframeSelector, { timeout: 15000 });
 
         if (turboIframeElement) {
             console.log("Found the turbo iframe inside the first iframe!");
