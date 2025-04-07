@@ -52,7 +52,7 @@ const { chromium } = require('playwright');
 
         // Step 5: Scroll to view and click 'Auto' button via XPath
         const autoBtnXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/app-navigation-switcher/div/button[2]';
-        const autoBtn = await turboFrame.waitForSelector(`xpath=${autoBtnXPath}`, { timeout: 10000 });
+        const autoBtn = await turboFrame.waitForSelector(`xpath=${autoBtnXPath}`, { timeout: 20000 });
 
         if (autoBtn) {
             await autoBtn.scrollIntoViewIfNeeded();
@@ -61,16 +61,14 @@ const { chromium } = require('playwright');
             console.log("Clicked on the 'Auto' button inside the turbo iframe.");
         }
 
-        // Step 6: Click 'Cashout' button 5 times
-        const cashoutXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[1]/div[1]/app-spinner/div/div[1]/button';
-        for (let i = 0; i < 5; i++) {
-            const cashoutBtn = await turboFrame.waitForSelector(`xpath=${cashoutXPath}`, { timeout: 10000 });
-            if (cashoutBtn) {
-                await cashoutBtn.click();
-                await turboFrame.waitForTimeout(500);
-            }
+        // Step 6: Set cashout value to 10
+        const cashoutInputXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[1]/div[1]/app-spinner/div/div[2]/input';
+        const cashoutInput = await turboFrame.waitForSelector(`xpath=${cashoutInputXPath}`, { timeout: 10000 });
+        if (cashoutInput) {
+            await cashoutInput.fill(''); // Clear existing value
+            await cashoutInput.fill('10'); // Set new value
+            console.log("Set cashout value to 10.");
         }
-        console.log("Clicked cashout button 5 times.");
 
         // Step 7: Click 'Set cash out limit'
         const setLimitXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div[2]/div[1]/app-ui-switcher/div';
