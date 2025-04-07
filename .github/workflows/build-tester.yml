@@ -30,8 +30,8 @@ jobs:
 
       - name: Extract Chromium Profile
         run: |
-          mkdir -p /home/runner/sportybet/
-          tar -xzvf sportybet.tar.gz -C /home/runner/sportybet/
+          mkdir -p /home/runner/
+          tar -xzvf sportybet.tar.gz -C /home/runner/
 
       - name: Start Xvfb (Simulate GUI)
         run: Xvfb :99 -screen 0 1920x1080x24 &
