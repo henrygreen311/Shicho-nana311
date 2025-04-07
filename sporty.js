@@ -3,7 +3,7 @@ const readline = require('readline');
 
 (async () => {
     const browser = await chromium.launchPersistentContext('/home/runner/sportybet', {
-        headless: false,
+        headless: true,
         args: ['--no-sandbox']
     });
 
