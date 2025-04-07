@@ -28,11 +28,6 @@ jobs:
       - name: Install Xvfb (GUI Emulator)
         run: sudo apt update && sudo apt install -y xvfb
 
-      - name: Extract Chromium Profile
-        run: |
-          mkdir -p /home/runner/
-          tar -xzvf sportybet.tar.gz -C /home/runner/
-
       - name: Start Xvfb (Simulate GUI)
         run: Xvfb :99 -screen 0 1920x1080x24 &
 
