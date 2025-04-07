@@ -1,5 +1,4 @@
 const { chromium } = require('playwright');
-const readline = require('readline');
 
 (async () => {
     const browser = await chromium.launch({
@@ -7,167 +6,107 @@ const readline = require('readline');
         args: ['--no-sandbox']
     });
 
-    const page = await browser.newPage();
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
     try {
-        // Navigate to the login page
-        await page.goto('https://www.sportybet.com/ng/login', {
-            waitUntil: 'domcontentloaded'
-        });
+        // Step 1: Login
+        await page.goto('https://www.sportybet.com/ng/login');
+        console.log("Navigated to login page.");
 
-        // Input phone number
-        const phoneInput = await page.waitForSelector('input[name="phone"]', { timeout: 15000 });
-        await phoneInput.fill('9120183273');
-        console.log("Entered phone number.");
+        await page.waitForSelector('input[name="phone"]', { timeout: 10000 });
+        await page.fill('input[name="phone"]', '9120183273');
 
-        // Input password
-        const passwordInput = await page.waitForSelector('input[type="password"]', { timeout: 15000 });
-        await passwordInput.fill('Edmond99');
-        console.log("Entered password.");
+        await page.waitForSelector('input[type="password"]', { timeout: 10000 });
+        await page.fill('input[type="password"]', 'Edmond99');
 
-        // Click login button
-        const loginButton = await page.waitForSelector('button.af-button--primary', { timeout: 15000 });
+        const loginButton = await page.waitForSelector('button.af-button--primary', { timeout: 10000 });
         await loginButton.click();
-        console.log("Clicked on the login button.");
+        console.log("Clicked login button.");
 
-        // Wait for 5 seconds after login
+        await page.waitForTimeout(5000); // Wait before proceeding
+
+        // Step 2: Navigate to games page
+        await page.goto('https://www.sportybet.com/ng/games?source=TopRibbon');
+        console.log("Navigated to games page.");
+
+        // Step 3: Access first iframe and click image
+        const outerFrameElement = await page.waitForSelector('iframe#games-lobby', { timeout: 10000 });
+        const outerFrame = await outerFrameElement.contentFrame();
+
+        const imageHolder = await outerFrame.waitForSelector('.image-holder', { timeout: 10000 });
+        const targetImg = await imageHolder.$('img[src*="1648540402134.png"]');
+
+        if (targetImg) {
+            await imageHolder.click();
+            console.log("Clicked on the matching image-holder inside iframe.");
+        }
+
+        // Step 4: Wait for turbo iframe and switch to it
         await page.waitForTimeout(5000);
-        console.log("Waited for 5 seconds before proceeding with the next URL.");
+        const turboIframeElement = await outerFrame.waitForSelector('iframe.turbo-games-iframe', { timeout: 10000 });
+        const turboFrame = await turboIframeElement.contentFrame();
 
-        // Proceed to the second URL
-        await page.goto('https://www.sportybet.com/ng/games?source=TopRibbon', {
-            waitUntil: 'domcontentloaded'
-        });
+        console.log("Found the turbo iframe inside the first iframe!");
+        console.log("Switched to the turbo iframe.");
 
-        // Continue the rest of the script from here...
-        const iframeElement = await page.waitForSelector('iframe#games-lobby', { timeout: 15000 });
-        const frame = await iframeElement.contentFrame();
+        // Step 5: Scroll to view and click 'Auto' button via XPath
+        const autoBtnXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/app-navigation-switcher/div/button[2]';
+        const autoBtn = await turboFrame.waitForSelector(`xpath=${autoBtnXPath}`, { timeout: 10000 });
 
-        if (!frame) {
-            console.error("Failed to access iframe content.");
-            await browser.close();
-            return;
+        if (autoBtn) {
+            await autoBtn.scrollIntoViewIfNeeded();
+            await turboFrame.waitForTimeout(10000);
+            await autoBtn.click();
+            console.log("Clicked on the 'Auto' button inside the turbo iframe.");
         }
 
-        await frame.waitForSelector('.image-holder', { timeout: 15000 });
-
-        const imageHolders = await frame.$$('.image-holder');
-        const targetSrc = 'https://s.sporty.net/sportygames/lobby_banner/1648540402134.png';
-        let clicked = false;
-
-        for (const holder of imageHolders) {
-            const img = await holder.$(`img[src="${targetSrc}"]`);
-            if (img) {
-                await holder.click();
-                console.log("Clicked on the matching image-holder inside iframe.");
-                clicked = true;
-                break;
+        // Step 6: Click 'Cashout' button 5 times
+        const cashoutXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[1]/div[1]/app-spinner/div/div[1]/button';
+        for (let i = 0; i < 5; i++) {
+            const cashoutBtn = await turboFrame.waitForSelector(`xpath=${cashoutXPath}`, { timeout: 10000 });
+            if (cashoutBtn) {
+                await cashoutBtn.click();
+                await turboFrame.waitForTimeout(500);
             }
         }
+        console.log("Clicked cashout button 5 times.");
 
-        if (!clicked) {
-            console.log("No matching image-holder found inside iframe.");
+        // Step 7: Click 'Set cash out limit'
+        const setLimitXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div[2]/div[1]/app-ui-switcher/div';
+        const setLimitBtn = await turboFrame.waitForSelector(`xpath=${setLimitXPath}`, { timeout: 10000 });
+        if (setLimitBtn) {
+            await setLimitBtn.click();
+            console.log("Clicked on 'Set cash out limit'.");
         }
 
-        // Force looking for the turbo iframe inside the first iframe
-        const turboIframeSelector = 'iframe.turbo-games-iframe';
-        const turboIframeElement = await frame.waitForSelector(turboIframeSelector, { timeout: 15000 });
-
-        if (turboIframeElement) {
-            console.log("Found the turbo iframe inside the first iframe!");
-
-            // Switch context to the turbo iframe
-            const turboFrame = await turboIframeElement.contentFrame();
-            if (turboFrame) {
-                console.log("Switched to the turbo iframe.");
-
-                // Wait for navigation switcher and the 'Auto' button to be visible
-                const navigationSwitcherSelector = 'app-navigation-switcher .navigation-switcher';
-                await turboFrame.waitForSelector(navigationSwitcherSelector, { timeout: 15000 });
-
-                // Use XPath for 'Auto' button
-                const autoButtonXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/app-navigation-switcher/div/button[2]';
-                const autoButton = await turboFrame.waitForSelector(`xpath=${autoButtonXPath}`, { visible: true, timeout: 15000 });
-
-                if (autoButton) {
-                    console.log("Found navigation switcher and 'Auto' button, waiting 10 seconds before clicking...");
-
-                    // Wait 10 seconds before clicking the "Auto" button
-                    await turboFrame.waitForTimeout(10000);
-
-                    // Scroll the "Auto" button into view using a more aggressive method
-                    await turboFrame.evaluate((autoButton) => {
-                        if (autoButton) {
-                            autoButton.scrollIntoView();
-                        }
-                    }, autoButton);
-
-                    // Click the "Auto" button using XPath logic
-                    await autoButton.click();
-                    console.log("Clicked on the 'Auto' button inside the turbo iframe.");
-                } else {
-                    console.error("Failed to locate the 'Auto' button.");
-                }
-
-                // Click the "Cashout" button 5 times
-                const cashoutButtonXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[1]/div[1]/app-spinner/div/div[1]/button';
-                const cashoutButton = await turboFrame.waitForSelector(`xpath=${cashoutButtonXPath}`, { visible: true, timeout: 15000 });
-
-                if (cashoutButton) {
-                    for (let i = 0; i < 5; i++) {
-                        console.log(`Clicking the "Cashout" button: Attempt ${i + 1}`);
-                        await cashoutButton.click();
-                        await turboFrame.waitForTimeout(2000); // wait for 2 seconds between each click
-                    }
-                    console.log("Clicked the 'Cashout' button 5 times.");
-                } else {
-                    console.error("Failed to locate the 'Cashout' button.");
-                }
-
-                // Click on "Set cash out limit"
-                const setCashOutLimitXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div[2]/div[1]/app-ui-switcher/div';
-                const setCashOutLimitButton = await turboFrame.waitForSelector(`xpath=${setCashOutLimitXPath}`, { visible: true, timeout: 15000 });
-
-                if (setCashOutLimitButton) {
-                    console.log("Found and clicking the 'Set cash out limit' button.");
-                    await setCashOutLimitButton.click();
-                    await turboFrame.waitForTimeout(2000); // wait for 2 seconds after clicking
-                } else {
-                    console.error("Failed to locate the 'Set cash out limit' button.");
-                }
-
-                // Click on "Setting for automatically betting"
-                const autoBettingSettingXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div[1]/div/app-ui-switcher/div';
-                const autoBettingSettingButton = await turboFrame.waitForSelector(`xpath=${autoBettingSettingXPath}`, { visible: true, timeout: 15000 });
-
-                if (autoBettingSettingButton) {
-                    console.log("Found and clicking the 'Setting for automatically betting' button.");
-                    await autoBettingSettingButton.click();
-                    await turboFrame.waitForTimeout(2000); // wait for 2 seconds after clicking
-                } else {
-                    console.error("Failed to locate the 'Setting for automatically betting' button.");
-                }
-            } else {
-                console.error("Failed to switch to turbo iframe.");
-            }
-        } else {
-            console.log("Turbo iframe not found inside the first iframe.");
+        // Step 8: Input 1.10 in the field to make it 1.20
+        const inputXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div[2]/div[2]/div/app-spinner/div/div[2]/input';
+        const inputField = await turboFrame.waitForSelector(`xpath=${inputXPath}`, { timeout: 10000 });
+        if (inputField) {
+            await inputField.fill('1.20');
+            console.log("Set cash out limit to 1.20.");
         }
 
-        // Wait for user input before closing
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
-        });
+        // Step 9: Click 'Setting for automatically betting'
+        const autoBetXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div[1]/div/app-ui-switcher/div';
+        const autoBetBtn = await turboFrame.waitForSelector(`xpath=${autoBetXPath}`, { timeout: 10000 });
+        if (autoBetBtn) {
+            await autoBetBtn.click();
+            console.log("Clicked on 'Setting for automatically betting'.");
+        }
 
-        rl.question("Press ENTER to close the browser and exit script...", async () => {
-            rl.close();
+        // Final wait for user to close
+        console.log("Press ENTER to close the browser and exit script...");
+        process.stdin.once('data', async () => {
             await browser.close();
             console.log("Browser closed. Script exited.");
+            process.exit();
         });
 
-    } catch (err) {
-        console.error("Error occurred:", err.message);
+    } catch (error) {
+        console.error("Error occurred:", error.message);
         await browser.close();
+        console.log("Browser closed due to error.");
     }
 })();
