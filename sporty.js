@@ -61,7 +61,7 @@ const { chromium } = require('playwright');
             console.log("Clicked on the 'Auto' button inside the turbo iframe.");
         }
 
-        // Step 6: Set cashout value to 10
+        // Step 6: Set Play amount value to 10
         const cashoutInputXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[1]/div[1]/app-spinner/div/div[2]/input';
         const cashoutInput = await turboFrame.waitForSelector(`xpath=${cashoutInputXPath}`, { timeout: 10000 });
         if (cashoutInput) {
@@ -82,8 +82,8 @@ const { chromium } = require('playwright');
         const inputXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div[2]/div[2]/div/app-spinner/div/div[2]/input';
         const inputField = await turboFrame.waitForSelector(`xpath=${inputXPath}`, { timeout: 10000 });
         if (inputField) {
-            await inputField.fill('1.20');
-            console.log("Set cash out limit to 1.20.");
+            await inputField.fill('2.00');
+            console.log("Set cash out limit to 2.00.");
         }
 
         // Step 9: Click 'Setting for automatically betting'
