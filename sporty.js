@@ -62,7 +62,7 @@ const { chromium } = require('playwright');
         }
 
         // Step 6: Set Play amount value to 10
-        const cashoutInputXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[1]/div[1]/app-spinner/div/div[2]/input';
+        const cashoutInputXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[1]/div[2]/div[1]/app-spinner/div/div[2]/input';
         const cashoutInput = await turboFrame.waitForSelector(`xpath=${cashoutInputXPath}`, { timeout: 10000 });
         if (cashoutInput) {
             await cashoutInput.fill(''); // Clear existing value
