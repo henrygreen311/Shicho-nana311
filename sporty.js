@@ -51,7 +51,7 @@ const { chromium } = require('playwright');
         console.log("Switched to the turbo iframe.");
 
         // Step 5: Scroll to view and click 'Auto' button via XPath
-        const autoBtnXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/app-navigation-switcher/div/button[2]';
+        const autoBtnXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[1]/div[1]/app-navigation-switcher/div/button[2]';
         const autoBtn = await turboFrame.waitForSelector(`xpath=${autoBtnXPath}`, { timeout: 20000 });
 
         if (autoBtn) {
