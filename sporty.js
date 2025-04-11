@@ -71,15 +71,15 @@ const { chromium } = require('playwright');
         }
 
         // Step 7: Click 'Set cash out limit'
-        const setLimitXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div[2]/div[1]/app-ui-switcher/div';
+        const setLimitXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div/div[2]/div[1]/app-ui-switcher/div';
         const setLimitBtn = await turboFrame.waitForSelector(`xpath=${setLimitXPath}`, { timeout: 10000 });
         if (setLimitBtn) {
             await setLimitBtn.click();
-            console.log("Clicked on 'Set cash out limit'.");
+            console.log("Clicked on 'Set Auto cash out'.");
         }
 
         // Step 8: Input 1.10 in the field to make it 1.20
-        const inputXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div[2]/div[2]/div/app-spinner/div/div[2]/input';
+        const inputXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div/div[2]/div[2]/div/app-spinner/div/div[2]/input';
         const inputField = await turboFrame.waitForSelector(`xpath=${inputXPath}`, { timeout: 10000 });
         if (inputField) {
             await inputField.fill('2.00');
@@ -87,7 +87,7 @@ const { chromium } = require('playwright');
         }
 
         // Step 9: Click 'Setting for automatically betting'
-        const autoBetXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div[1]/div/app-ui-switcher/div';
+        const autoBetXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div/div[1]/div/app-ui-switcher/div';
         const autoBetBtn = await turboFrame.waitForSelector(`xpath=${autoBetXPath}`, { timeout: 10000 });
         if (autoBetBtn) {
             await autoBetBtn.click();
