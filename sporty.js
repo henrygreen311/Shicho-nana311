@@ -67,7 +67,7 @@ const { chromium } = require('playwright');
         if (cashoutInput) {
             await cashoutInput.fill(''); // Clear existing value
             await cashoutInput.fill('10'); // Set new value
-            console.log("Set cashout value to 10.");
+            console.log("Set Play amount value to 10.");
         }
 
         // Step 7: Click 'Set cash out limit'
