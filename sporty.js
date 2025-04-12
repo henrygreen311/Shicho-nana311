@@ -82,8 +82,8 @@ const { chromium } = require('playwright');
         const inputXPath = '/html/body/app-root/app-game/div/div[1]/div[2]/div/div[2]/div[3]/app-bet-controls/div/app-bet-control[1]/div/div[3]/div/div[2]/div[2]/div/app-spinner/div/div[2]/input';
         const inputField = await turboFrame.waitForSelector(`xpath=${inputXPath}`, { timeout: 10000 });
         if (inputField) {
-            await inputField.fill('2.00');
-            console.log("Set cash out limit to 2.00.");
+            await inputField.fill('1.30');
+            console.log("Set cash out limit to 1.30");
         }
 
         // Step 9: Click 'Setting for automatically betting'
