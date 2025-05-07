@@ -19,18 +19,17 @@ jobs:
       - name: Cache Chromium Binary
         uses: actions/cache@v4.2.3
         with:
-          path: /usr/bin/chromium
-          key: Linux-chromium-${{ runner.os }}
-          restore-keys: Linux-chromium-
+          path: /usr/bin/chromium-browser
+          key: chromium-cache-${{ runner.os }}
+          restore-keys: chromium-cache-
 
-      - name: Install Chromium via apt
-        run: sudo apt-get install -y chromium
+      - name: Install Chromium Browser
+        run: sudo apt-get install -y chromium-browser
 
-      - name: Install Puppeteer Dependencies
-        run: |
-          npm install puppeteer-core puppeteer-extra puppeteer-extra-plugin-stealth
+      - name: Install Puppeteer & Plugins
+        run: npm install puppeteer-core puppeteer-extra puppeteer-extra-plugin-stealth
 
-      - name: Display Current IP Address
+      - name: Display Current IP
         run: curl https://api.ipify.org
 
       - name: Run Traffic Script
