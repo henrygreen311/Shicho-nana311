@@ -4,38 +4,36 @@ on:
   workflow_dispatch:
 
 jobs:
-  run-puppeteer:
+  traffic:
     runs-on: ubuntu-latest
+    env:
+      DISPLAY: ':99.0'
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Install Chromium
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y chromium-browser xvfb curl
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
 
-      - name: Install dependencies without Chromium
-        env:
-          PUPPETEER_SKIP_DOWNLOAD: 'true'
-        run: npm install puppeteer-extra puppeteer-extra-plugin-stealth
+      - name: Cache Chromium
+        uses: actions/cache@v4.2.3
+        with:
+          path: /home/runner/chromium-browser
+          key: ${{ runner.os }}-chromium-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-chromium-
+
+      - name: Install Dependencies
+        run: npm install puppeteer-core puppeteer-extra puppeteer-extra-plugin-stealth
 
       - name: Start Xvfb (Simulate GUI)
         run: Xvfb :99 -screen 0 1920x1080x24 &
 
-      - name: Show public IP address
-        run: |
-          echo "Current Public IP:"
-          curl https://api.ipify.org
+      - name: Show External IP
+        run: curl ifconfig.me
 
-      - name: Run Puppeteer script
-        env:
-          DISPLAY: ':99.0'
-        run: |
-          node main.js
+      - name: Run Traffic Script
+        run: node main.js
