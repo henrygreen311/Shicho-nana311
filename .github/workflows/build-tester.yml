@@ -41,7 +41,7 @@ jobs:
               break
             fi
             echo "Sleeping 10 seconds before next run..."
-            sleep 10
+            sleep 20
           done
 
       - name: Re-trigger This Workflow
