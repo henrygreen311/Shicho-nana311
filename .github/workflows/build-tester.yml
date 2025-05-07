@@ -1,8 +1,7 @@
 name: Traffic
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   run-traffic:
@@ -14,28 +13,22 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Start Xvfb (Simulate GUI)
         run: Xvfb :99 -screen 0 1920x1080x24 &
-
-      - name: Install Chromium via apt
-        run: sudo apt-get install -y chromium
 
       - name: Cache Chromium Binary
         uses: actions/cache@v4.2.3
         with:
           path: /usr/bin/chromium
-          key: Linux-chromium-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            Linux-chromium-
+          key: Linux-chromium-${{ runner.os }}
+          restore-keys: Linux-chromium-
 
-      - name: Install Dependencies
+      - name: Install Chromium via apt
+        run: sudo apt-get install -y chromium
+
+      - name: Install Puppeteer Dependencies
         run: |
-          npm install puppeteer-core puppeteer-extra
+          npm install puppeteer-core puppeteer-extra puppeteer-extra-plugin-stealth
 
       - name: Display Current IP Address
         run: curl https://api.ipify.org
