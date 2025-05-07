@@ -16,20 +16,8 @@ jobs:
       - name: Start Xvfb (Simulate GUI)
         run: Xvfb :99 -screen 0 1920x1080x24 &
 
-      - name: Cache Chromium Binary
-        uses: actions/cache@v4.2.3
-        id: chromium-cache
-        with:
-          path: /home/runner/chromium-cache
-          key: chromium-cache-${{ runner.os }}
-          restore-keys: chromium-cache-
-
-      - name: Install Chromium Browser if Not Cached
-        if: steps.chromium-cache.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get install -y chromium-browser
-          mkdir -p /home/runner/chromium-cache
-          cp $(which chromium-browser) /home/runner/chromium-cache/chromium-browser
+      - name: Install Chromium Browser
+        run: sudo apt-get install -y chromium-browser
 
       - name: Install Puppeteer and Plugins
         run: npm install puppeteer-core puppeteer-extra puppeteer-extra-plugin-stealth
