@@ -1,56 +1,65 @@
 name: Traffic
+
 on:
   workflow_dispatch:
 
 jobs:
-  traffic-job:
+  run-traffic:
     runs-on: ubuntu-latest
     env:
-      DISPLAY: ":99.0"
+      DISPLAY: ':99.0'
+
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: |
-          npm install puppeteer-core puppeteer-extra puppeteer-extra-plugin-stealth
-
-      - name: Install Chromium
-        run: |
-          sudo apt-get install -y chromium-browser
-          ln -sf /usr/bin/chromium-browser /home/runner/chromium-browser
 
       - name: Start Xvfb (Simulate GUI)
         run: Xvfb :99 -screen 0 1920x1080x24 &
 
-      - name: Run Traffic script repeatedly
+      - name: Cache Chromium Binary
+        uses: actions/cache@v4.2.3
+        id: chromium-cache
+        with:
+          path: /home/runner/chromium-cache
+          key: chromium-cache-${{ runner.os }}
+          restore-keys: chromium-cache-
+
+      - name: Install Chromium Browser if Not Cached
+        if: steps.chromium-cache.outputs.cache-hit != 'true'
         run: |
-          START=$(date +%s)
+          sudo apt-get install -y chromium-browser
+          mkdir -p /home/runner/chromium-cache
+          cp $(which chromium-browser) /home/runner/chromium-cache/chromium-browser
+
+      - name: Install Puppeteer and Plugins
+        run: npm install puppeteer-core puppeteer-extra puppeteer-extra-plugin-stealth
+
+      - name: Display Current IP
+        run: curl https://api.ipify.org
+
+      - name: Run Main Script in Loop Until Timeout
+        run: |
+          echo "Starting loop to run main.js repeatedly for up to 5 hours 30 minutes..."
+          START_TIME=$(date +%s)
+          TIMEOUT=$((60 * 60 * 5 + 60 * 30)) # 5h30m in seconds
+
           while true; do
             echo "Running main.js..."
-            node main.js || echo "main.js exited with error"
-            NOW=$(date +%s)
-            ELAPSED=$(( (NOW - START) / 60 ))
-            echo "Elapsed time: $ELAPSED minutes"
-            if [ "$ELAPSED" -ge 330 ]; then
-              echo "Reached 5h30m, exiting with 0"
+            node main.js || echo "main.js exited with non-zero, continuing..."
+            CURRENT_TIME=$(date +%s)
+            ELAPSED=$((CURRENT_TIME - START_TIME))
+            if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
+              echo "Reached 5 hours 30 minutes. Triggering workflow rerun..."
               break
             fi
+            echo "Sleeping 10 seconds before next run..."
+            sleep 10
           done
 
-      - name: Trigger this workflow again
-        if: ${{ success() }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Re-trigger This Workflow
         run: |
-          echo "Re-triggering the same workflow..."
           curl -X POST \
+            -H "Authorization: token ${{ secrets.GH_PAT }}" \
             -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GH_TOKEN" \
             https://api.github.com/repos/${{ github.repository }}/actions/workflows/traffic.yml/dispatches \
             -d '{"ref":"${{ github.ref_name }}"}'
