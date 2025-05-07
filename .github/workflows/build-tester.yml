@@ -19,12 +19,16 @@ jobs:
       - name: Cache Chromium Binary
         uses: actions/cache@v4.2.3
         with:
-          path: /usr/bin/chromium-browser
+          path: /home/runner/chromium-cache
           key: chromium-cache-${{ runner.os }}
           restore-keys: chromium-cache-
 
       - name: Install Chromium Browser
-        run: sudo apt-get install -y chromium-browser
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install -y chromium-browser
+          mkdir -p /home/runner/chromium-cache
+          cp $(which chromium-browser) /home/runner/chromium-cache/chromium-browser
 
       - name: Install Puppeteer & Plugins
         run: npm install puppeteer-core puppeteer-extra puppeteer-extra-plugin-stealth
