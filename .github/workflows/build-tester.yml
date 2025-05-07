@@ -1,10 +1,11 @@
 name: Traffic
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
-  traffic:
+  run-traffic:
     runs-on: ubuntu-latest
     env:
       DISPLAY: ':99.0'
@@ -13,38 +14,31 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-
-      - name: Cache Chromium
-        id: chromium-cache
-        uses: actions/cache@v4.2.3
-        with:
-          path: /home/runner/chromium-browser
-          key: ${{ runner.os }}-chromium-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-chromium-
-
-      - name: Install Chromium if not cached
-        if: steps.chromium-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p /home/runner/chromium-browser
-          wget https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/1221192/chrome-linux.zip
-          unzip chrome-linux.zip
-          mv chrome-linux/* /home/runner/chromium-browser/
-          chmod +x /home/runner/chromium-browser/chrome
-          rm -rf chrome-linux chrome-linux.zip
-
-      - name: Install Dependencies
-        run: npm install puppeteer-core puppeteer-extra puppeteer-extra-plugin-stealth
+          node-version: '20'
 
       - name: Start Xvfb (Simulate GUI)
         run: Xvfb :99 -screen 0 1920x1080x24 &
 
-      - name: Show External IP
-        run: curl ifconfig.me
+      - name: Install Chromium via apt
+        run: sudo apt-get install -y chromium
+
+      - name: Cache Chromium Binary
+        uses: actions/cache@v4.2.3
+        with:
+          path: /usr/bin/chromium
+          key: Linux-chromium-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            Linux-chromium-
+
+      - name: Install Dependencies
+        run: |
+          npm install puppeteer-core puppeteer-extra
+
+      - name: Display Current IP Address
+        run: curl https://api.ipify.org
 
       - name: Run Traffic Script
         run: node main.js
