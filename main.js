@@ -17,7 +17,7 @@ const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) 
 
 (async () => {
   const userAgent = getRandomUserAgent('user_agents.txt');
-  const chromiumPath = '/home/runner/chromium-cache/chromium-browser';
+  const chromiumPath = '/usr/bin/chromium';
 
   let browser;
   try {
