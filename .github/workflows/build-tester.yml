@@ -40,7 +40,7 @@ jobs:
               echo "Reached 5 hours 30 minutes. Triggering workflow rerun..."
               break
             fi
-            echo "Sleeping 10 seconds before next run..."
+            echo "Sleeping 20 seconds before next run..."
             sleep 20
           done
 
