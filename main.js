@@ -91,40 +91,40 @@ const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) 
     // Navigate to Google search
     try {
       await page.goto('https://www.google.com/search?q=wixnation.com', { waitUntil: 'domcontentloaded', timeout: 30000 });
-     // console.log('Waiting 5 seconds...');
+      //console.log('Waiting 5 seconds...');
       await delay(5000);
     } catch (error) {
-     // console.error('Failed to load Google search page:', error.message);
+      console.error('Failed to load Google search page:', error.message);
       await browser.close();
       return;
     }
 
     // Find the target link
-    const linkHandle = await page.evaluateHandle(() => {
-      const anchors = Array.from(document.querySelectorAll('a'));
-      const target = anchors.find(a => {
-        const span = a.querySelector('span');
-        return span && span.textContent.includes('WiXnation Unlimited Free Music');
-      });
-      return target || null;
-    });
+const linkHandle = await page.evaluateHandle(() => {
+  const anchors = Array.from(document.querySelectorAll('a'));
+  const target = anchors.find(a => {
+    const spans = a.querySelectorAll('span');
+    return Array.from(spans).some(span => span.textContent.includes('wixnation.com'));
+  });
+  return target || null;
+});
 
     if (!linkHandle) {
-     // console.log('Target result not found.');
+      console.log('Target result not found.');
       await browser.close();
       return;
     }
 
     const element = linkHandle.asElement();
     if (!element) {
-     // console.log('Link is not a valid element.');
+      console.log('Link is not a valid element.');
       await browser.close();
       return;
     }
 
     const box = await element.boundingBox();
     if (!box) {
-     // console.log('Bounding box not found.');
+      //console.log('Bounding box not found.');
       await browser.close();
       return;
     }
@@ -140,7 +140,7 @@ const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) 
     // Get the href of the target link
     const href = await page.evaluate(el => el.href, element);
     if (!href) {
-     // console.log('Link href not found.');
+      console.log('Link href not found.');
       await browser.close();
       return;
     }
@@ -158,7 +158,7 @@ const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) 
       }, element);
       await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 });
     } catch (error) {
-     // console.error('Failed to navigate after clicking link:', error.message);
+      //console.error('Failed to navigate after clicking link:', error.message);
       await browser.close();
       return;
     }
@@ -167,13 +167,13 @@ const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) 
     const ga4Present = await page.evaluate(() => {
       return !!window.gtag || !!document.querySelector('script[src*="gtag/js"]');
     });
-    console.log(`GA4 tracking present: ${ga4Present}`);
+    //console.log(`GA4 tracking present: ${ga4Present}`);
 
     const doSearch = Math.random() < 0.5;
 
     if (!doSearch) {
       const stayTime = randomBetween(30000, 90000);
-     // console.log(`Staying on page for ${(stayTime / 1000).toFixed(3)}s with random scrolls...`);
+      //console.log(`Staying on page for ${(stayTime / 1000).toFixed(3)}s with random scrolls...`);
       const scrollStart = Date.now();
 
       while (Date.now() - scrollStart < stayTime) {
@@ -206,13 +206,13 @@ const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) 
             await delay(Math.floor(Math.random() * 2000) + 1500);
           }, scrollTo);
         } catch (error) {
-         // console.error('Error during scrolling:', error.message);
+          //console.error('Error during scrolling:', error.message);
         }
 
         await delay(randomBetween(3000, 6000));
       }
 
-     // console.log('Scrolling back up...');
+      //console.log('Scrolling back up...');
       await page.evaluate(() => window.scrollTo(0, 0));
       await delay(randomBetween(3000, 5000));
 
@@ -223,10 +223,10 @@ const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) 
       const menuList = fromTop ? topMenuIds : footerMenuIds;
       const chosenId = menuList[Math.floor(Math.random() * menuList.length)];
 
-     // console.log(`Attempting to click menu item: ${chosenId}`);
+      //console.log(`Attempting to click menu item: ${chosenId}`);
 
       if (!fromTop) {
-       // console.log('Scrolling to footer again...');
+        //console.log('Scrolling to footer again...');
         await page.evaluate(() => {
           const footer = document.querySelector('footer#colophon.site-footer');
           if (footer) footer.scrollIntoView({ behavior: 'smooth' });
@@ -249,10 +249,10 @@ const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) 
               targetEl.click(),
               page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
             ]);
-           // console.log('Menu item clicked.');
+            //console.log('Menu item clicked.');
 
             const newStayTime = randomBetween(10000, 60000);
-           // console.log(`Staying on new page for ${(newStayTime / 1000).toFixed(3)}s with scrolling to footer...`);
+            //console.log(`Staying on new page for ${(newStayTime / 1000).toFixed(3)}s with scrolling to footer...`);
 
             const endTime = Date.now() + newStayTime;
             while (Date.now() < endTime) {
@@ -265,16 +265,16 @@ const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) 
               await delay(randomBetween(3000, 6000));
             }
           } catch (error) {
-           // console.error('Failed to navigate after clicking menu item:', error.message);
+            //console.error('Failed to navigate after clicking menu item:', error.message);
           }
         } else {
-         // console.log('Element box not found.');
+          //console.log('Element box not found.');
         }
       } else {
-       // console.log('Menu element not found.');
+        //console.log('Menu element not found.');
       }
     } else {
-     // console.log('Random behavior chosen: Simulating search...');
+      //console.log('Random behavior chosen: Simulating search...');
 
       const artists = [
         'Beyonce',
@@ -300,12 +300,12 @@ const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) 
           await delay(400);
           await page.keyboard.type(keyword, { delay: randomBetween(100, 200) });
           await page.keyboard.press('Enter');
-         // console.log(`Typed and searched for: "${keyword}"`);
+          //console.log(`Typed and searched for: "${keyword}"`);
 
           try {
             await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
           } catch (error) {
-           // console.log('Navigation after search did not complete, continuing...');
+            //console.log('Navigation after search did not complete, continuing...');
           }
           await delay(randomBetween(3000, 6000));
 
@@ -329,28 +329,28 @@ const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) 
                 await anchor.hover();
                 await delay(randomBetween(200, 400));
                 await anchor.click();
-               // console.log('Clicked on Spotify track link.');
+                //console.log('Clicked on Spotify track link.');
               } else {
-               // console.log('No Spotify <a> link found inside track.');
+                //console.log('No Spotify <a> link found inside track.');
               }
             } else {
-             // console.log('No Spotify tracks found.');
+              //console.log('No Spotify tracks found.');
             }
           } else {
-           // console.log('No Spotify tracks found.');
+            //console.log('No Spotify tracks found.');
           }
         } else {
-         // console.log('Search box bounding box not found.');
+          //console.log('Search box bounding box not found.');
         }
       } else {
-       // console.log('Search box not found.');
+        //console.log('Search box not found.');
       }
     }
 
-   // console.log('Closing browser...');
+    //console.log('Closing browser...');
     await browser.close();
   } catch (error) {
-   // console.error('Unexpected error:', error.message);
+    //console.error('Unexpected error:', error.message);
     if (browser) await browser.close();
   }
 })();
