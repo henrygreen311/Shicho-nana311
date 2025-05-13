@@ -90,7 +90,7 @@ const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) 
 
     // Navigate to Google search
     try {
-      await page.goto('https://www.google.com/search?q=wixnation.com', { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.goto('https://www.google.com/search?q=download free music wixnation', { waitUntil: 'domcontentloaded', timeout: 30000 });
       //console.log('Waiting 5 seconds...');
       await delay(5000);
     } catch (error) {
