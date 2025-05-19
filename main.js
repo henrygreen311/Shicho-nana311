@@ -91,8 +91,17 @@ async function randomClick(page) {
       await page.mouse.move(x, y, { steps: randomBetween(5, 10) });
       await delay(randomBetween(50, 200));
       await page.mouse.click(x, y);
+      //console.log(`Clicked interactive element at (${x}, ${y})`);
     }
+  } else {
+    const x = randomBetween(50, 1200);
+    const y = randomBetween(100, 700);
+    await page.mouse.move(x, y, { steps: randomBetween(5, 10) });
+    await delay(randomBetween(50, 200));
+    await page.mouse.click(x, y);
+    //console.log(`Clicked at (${x}, ${y})`);
   }
+  await delay(randomBetween(200, 500));
 }
 
 async function humanInteraction(page) {
@@ -101,8 +110,11 @@ async function humanInteraction(page) {
     const randomElement = hoverableElements[randomBetween(0, hoverableElements.length - 1)];
     try {
       await randomElement.hover({ timeout: 5000 });
+      //console.log('Hovered over an element');
       await delay(randomBetween(200, 600));
-    } catch (_) {}
+    } catch (e) {
+      //console.log(`Hover failed: ${e.message}`);
+    }
   }
 
   const input = await page.$('input[type="text"], input[type="search"]');
@@ -110,6 +122,7 @@ async function humanInteraction(page) {
     const searchTerms = ['test query', 'example', 'search term', 'hello world'];
     const term = searchTerms[randomBetween(0, searchTerms.length - 1)];
     await input.type(term, { delay: randomBetween(80, 150) });
+    //console.log(`Typed "${term}" in input field`);
     await delay(randomBetween(500, 1500));
   }
 
@@ -132,25 +145,46 @@ async function handlePopUp(page) {
 
     const popUp = await page.$(popUpSelectors);
     if (popUp) {
-      const closeButton = await popUp.$('button, .close, [aria-label="close"]');
+      console.log('Pop-up detected');
+
+      const closeButtonSelectors = [
+        'button[class*="close"]',
+        'button[aria-label*="close"]',
+        'button[aria-label*="dismiss"]',
+        'a[class*="close"]',
+        'div[class*="close"]',
+        'button[id*="close"]',
+        'span[class*="close"]',
+        '[onclick*="close"]',
+        'button:has(svg)',
+        'button:near([class*="modal"], 50)',
+        '[class*="modal"] button'
+      ].join(', ');
+
+      const closeButton = await popUp.$(closeButtonSelectors);
       if (closeButton) {
-        const box = await closeButton.boundingBox();
-        if (box) {
-          const x = box.x + box.width / 2;
-          const y = box.y + box.height / 2;
-          await page.mouse.move(x, y);
+        const boundingBox = await closeButton.boundingBox();
+        if (boundingBox) {
+          const x = boundingBox.x + boundingBox.width / 2;
+          const y = boundingBox.y + boundingBox.height / 2;
+          await page.mouse.move(x, y, { steps: 5 });
           await delay(randomBetween(50, 150));
           await closeButton.click();
+          //console.log('Closed pop-up via close button');
           await delay(1000);
           return true;
         }
       }
+
       await page.keyboard.press('Escape');
+      //console.log('Attempted to close pop-up with Escape key');
       await delay(1000);
       return true;
     }
+    console.log('No pop-up detected');
     return false;
-  } catch {
+  } catch (e) {
+    //console.log(`Error handling pop-up: ${e.message}`);
     return false;
   }
 }
@@ -168,31 +202,27 @@ async function interactWithUrl(proxy, userAgent, url) {
   const page = await context.newPage();
   await spoofDetection(page);
 
-  let isValid = false;
-
   try {
     await page.goto(url, { waitUntil: 'load', timeout: 15000 });
+
     const content = await page.content();
-
     if (content.includes("Anonymous Proxy detected")) {
-      console.log(`Proxy rejected as anonymous: ${proxy}`);
+      //console.log(`Rejected proxy (${proxy}): Detected as anonymous proxy.`);
     } else {
-      console.log(`Proxy passed: ${proxy}`);
-      isValid = true;
-
+      //console.log(`Loaded: ${url}`);
       await delay(15000);
+
       await handlePopUp(page);
       await humanScroll(page);
       await randomClick(page);
       await humanInteraction(page);
     }
   } catch (e) {
-    console.log(`Proxy failed to load URL: ${proxy} (${e.message})`);
+    //console.log(`Error with proxy ${proxy}:`, e.message);
   } finally {
     await context.close();
+    //console.log(`Closed browser for proxy: ${proxy}\n`);
   }
-
-  return isValid;
 }
 
 async function fetchProxies() {
@@ -213,7 +243,7 @@ async function isProxyValid(proxy) {
       const geo = await axios.get(`https://ipapi.co/${proxy.split(':')[0]}/json/`, { timeout: 4000 });
       const country = geo.data?.country;
       if (country === 'US' || country === 'CA') {
-        console.log(`Skipping proxy from ${country}: ${proxy}`);
+        //console.log(`Excluded proxy from ${country}: ${proxy}`);
         return null;
       }
       return { proxy, country };
@@ -234,30 +264,34 @@ function chunk(array, size) {
 
   while (true) {
     const proxies = await fetchProxies();
-    console.log(`Fetched ${proxies.length} proxies.`);
+    //console.log(`Testing ${proxies.length} proxies...\n`);
+    let foundAny = false;
 
-    for (const proxy of proxies) {
-      if (tested.has(proxy)) continue;
+    for (const batch of chunk(proxies, 10)) {
+      const results = await Promise.allSettled(batch.map(async proxy => {
+        if (tested.has(proxy)) return null;
+        return await isProxyValid(proxy);
+      }));
 
-      const result = await isProxyValid(proxy);
-      if (!result) continue;
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) {
+          foundAny = true;
+          const { proxy } = result.value;
 
-      const { proxy: validProxy } = result;
+          for (let i = 0; i < 5; i++) {
+            const userAgent = getRandomUserAgent('user_agents.txt');
+            //console.log(`Using User-Agent: ${userAgent} (Attempt ${i + 1}/5 for proxy ${proxy})`);
+            await interactWithUrl(proxy, userAgent, url);
+          }
 
-      let success = await interactWithUrl(validProxy, getRandomUserAgent('user_agents.txt'), url);
-      if (success) {
-        for (let i = 1; i < 5; i++) {
-          console.log(`Reusing proxy ${validProxy} - attempt ${i + 1}/5`);
-          await interactWithUrl(validProxy, getRandomUserAgent('user_agents.txt'), url);
+          tested.add(proxy);
         }
-        tested.add(validProxy);
-      } else {
-        console.log(`Skipping ${validProxy} after failed initial attempt.`);
-        tested.add(validProxy);
       }
     }
 
-    console.log('All proxies in batch tested. Refetching new list...\n');
-    await delay(5000);
+    if (!foundAny) {
+      //console.log('No valid proxy found in this batch. Will fetch a new list...\n');
+      await delay(3000);
+    }
   }
 })();
