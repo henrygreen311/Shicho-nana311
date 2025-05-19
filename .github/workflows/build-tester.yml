@@ -1,7 +1,9 @@
-name: Traffic
+name: Traffic-1
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 */5 * * *" # Runs every 5 hours on the hour
 
 jobs:
   run-traffic:
@@ -14,57 +16,27 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Start Xvfb (Simulate GUI)
-        run: Xvfb :99 -screen 0 1920x1080x24 &
-
-      - name: Install Chromium Browser
-        run: sudo apt-get install -y chromium-browser
-
-      - name: Install Puppeteer and Plugins
-        run: npm install puppeteer-core puppeteer-extra puppeteer-extra-plugin-stealth
-
-      - name: Display Current IP
-        run: curl https://api.ipify.org
-
-      - name: Run Main Script in Loop Until Timeout
         run: |
-          echo "Starting loop to run main.js repeatedly for up to 5 hours 30 minutes..."
-          START_TIME=$(date +%s)
-          TIMEOUT=$((60 * 60 * 5 + 60 * 30)) # 5h30m in seconds
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "Xvfb started with PID $!"
 
-          while true; do
-            echo "Running main.js..."
-            node main.js || echo "main.js exited with non-zero, continuing..."
-            CURRENT_TIME=$(date +%s)
-            ELAPSED=$((CURRENT_TIME - START_TIME))
-            if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
-              echo "Reached 5 hours 30 minutes. Triggering workflow rerun..."
-              break
-            fi
-            echo "Sleeping 20 seconds before next run..."
-            sleep 20
-          done
-
-      - name: Install jq
-        run: sudo apt-get install -y jq
-
-      - name: Delete Old Workflow Runs
+      - name: Install Dependencies (Playwright, Axios, Proxy Agent)
         run: |
-          echo "Fetching old workflow runs..."
-          RUNS=$(curl -s -H "Authorization: token ${{ secrets.GH_PAT }}" -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build-tester.yml/runs?per_page=100" | \
-            jq -r '.workflow_runs[] | select(.name == "Traffic") | .id')
+          npm install playwright axios https-proxy-agent
+          npx playwright install firefox
 
-          for RUN_ID in $RUNS; do
-            if [ "$RUN_ID" != "${{ github.run_id }}" ]; then
-              echo "Deleting workflow run ID: $RUN_ID"
-              curl -X DELETE -H "Authorization: token ${{ secrets.GH_PAT }}" -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID"
-            fi
-          done
-
-      - name: Re-trigger This Workflow
+      - name: Run main.js with timeout
         run: |
-          echo "Re-triggering this workflow..."
-          curl -X POST -H "Authorization: token ${{ secrets.GH_PAT }}" -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build-tester.yml/dispatches" \
-            -d "{\"ref\":\"${{ github.ref_name }}\"}"
+          # Run main.js with a timeout of 5 hours 30 minutes (19800 seconds)
+          timeout 19800 node main.js || {
+            echo "main.js completed or was terminated after 5h30m"
+            exit 0
+          }
+
+      - name: Clean up Xvfb
+        if: always() # Run even if previous steps fail
+        run: |
+          echo "Cleaning up Xvfb..."
+          pkill -f Xvfb || true
+          echo "Job completed, exiting with status 0"
+          exit 0
