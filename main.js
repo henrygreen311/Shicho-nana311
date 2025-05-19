@@ -1,8 +1,7 @@
 const fs = require('fs');
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-
-puppeteer.use(StealthPlugin());
+const axios = require('axios');
+const { firefox } = require('playwright');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 
 function getRandomUserAgent(filePath) {
   const userAgents = fs.readFileSync(filePath, 'utf-8')
@@ -15,342 +14,284 @@ function getRandomUserAgent(filePath) {
 const delay = ms => new Promise(res => setTimeout(res, ms));
 const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-(async () => {
-  const userAgent = getRandomUserAgent('user_agents.txt');
-  const chromiumPath = '/usr/bin/chromium';
+async function spoofDetection(page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
+    Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 0 });
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => Math.floor(Math.random() * 7) + 2 });
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => Math.floor(Math.random() * 13) + 4 });
 
-  let browser;
-  try {
-    browser = await puppeteer.launch({
-      headless: false,
-      executablePath: chromiumPath,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-infobars',
-        '--window-size=1366,768',
-      ],
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => [
+        { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+        { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: 'PDF Viewer' }
+      ]
     });
 
-    const page = await browser.newPage();
-    await page.setUserAgent(userAgent);
-    //console.log(`Using User-Agent: ${userAgent}`);
+    window.chrome = { runtime: {}, app: {} };
 
-    // Set a realistic viewport size
-    await page.setViewport({
-      width: 1366,
-      height: 768,
-      deviceScaleFactor: 1,
-    });
+    const originalGetContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type) {
+      const context = originalGetContext.apply(this, arguments);
+      if (type === '2d') {
+        const originalGetImageData = context.getImageData;
+        context.getImageData = function (x, y, width, height) {
+          const imageData = originalGetImageData.apply(this, arguments);
+          const data = imageData.data;
+          for (let i = 0; i < data.length; i += 4) {
+            data[i] += Math.floor(Math.random() * 3) - 1;
+            data[i + 1] += Math.floor(Math.random() * 3) - 1;
+            data[i + 2] += Math.floor(Math.random() * 3) - 1;
+          }
+          return imageData;
+        };
+      }
+      return context;
+    };
 
-    // Spoof navigator properties to avoid WebDriver detection
-    await page.evaluateOnNewDocument(() => {
-      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-      Object.defineProperty(navigator, 'plugins', {
-        get: () => [
-          { name: 'Chrome PDF Plugin' },
-          { name: 'Chrome PDF Viewer' },
-          { name: 'Native Client' },
-        ],
-      });
-      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-      Object.defineProperty(window, 'screen', {
-        get: () => ({
-          width: 1366,
-          height: 768,
-          availWidth: 1366,
-          availHeight: 768,
-          colorDepth: 24,
-          pixelDepth: 24,
-        }),
-      });
-      const getParameter = WebGLRenderingContext.prototype.getParameter;
-      WebGLRenderingContext.prototype.getParameter = function (parameter) {
-        if (parameter === 37446) return 'Google Inc. (NVIDIA)';
-        if (parameter === 37447) return 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1650 Direct3D11 vs_5_0 ps_5_0)';
-        return getParameter.apply(this, [parameter]);
-      };
-    });
-
-    // Patch Chrome-specific objects
-    await page.evaluateOnNewDocument(() => {
-      window.chrome = {
-        runtime: {},
-        loadTimes: () => ({}),
-        csi: () => ({}),
-        app: {},
-      };
-      Object.defineProperty(window, 'Permissions', {
-        get: () => ({
-          query: () => Promise.resolve({ state: 'granted' }),
-        }),
-      });
-    });
-
-    // Navigate to Google search
-    try {
-      await page.goto('https://www.google.com/search?q=download free music wixnation', { waitUntil: 'domcontentloaded', timeout: 30000 });
-      //console.log('Waiting 5 seconds...');
-      await delay(5000);
-    } catch (error) {
-      console.error('Failed to load Google search page:', error.message);
-      await browser.close();
-      return;
-    }
-
-    // Find the target link
-const linkHandle = await page.evaluateHandle(() => {
-  const anchors = Array.from(document.querySelectorAll('a'));
-  const target = anchors.find(a => {
-    const spans = a.querySelectorAll('span');
-    return Array.from(spans).some(span => span.textContent.includes('wixnation.com'));
+    const getParameter = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = function (parameter) {
+      if (parameter === 37446) return 'Intel Inc.';
+      if (parameter === 37447) return 'Intel Iris OpenGL Engine';
+      return getParameter.apply(this, arguments);
+    };
   });
-  return target || null;
-});
+}
 
-    if (!linkHandle) {
-      console.log('Target result not found.');
-      await browser.close();
-      return;
+async function humanScroll(page) {
+  const maxScroll = await page.evaluate(() => document.body.scrollHeight);
+  let currentY = 0;
+  const viewportHeight = randomBetween(600, 900);
+
+  while (currentY < maxScroll) {
+    const step = randomBetween(50, 200);
+    currentY = Math.min(currentY + step, maxScroll);
+    await page.evaluate(_y => window.scrollTo(0, _y), currentY);
+    await delay(randomBetween(100, 300));
+    if (Math.random() < 0.2) await delay(randomBetween(500, 1500));
+  }
+
+  currentY = Math.max(currentY - randomBetween(viewportHeight / 2, viewportHeight), 0);
+  await page.evaluate(_y => window.scrollTo(0, _y), currentY);
+  await delay(randomBetween(200, 600));
+
+  await delay(randomBetween(500, 2000));
+}
+
+async function randomClick(page) {
+  const elements = await page.$$('a, button, [role="button"], [onclick]');
+  if (elements.length > 0 && Math.random() < 0.7) {
+    const randomElement = elements[randomBetween(0, elements.length - 1)];
+    const boundingBox = await randomElement.boundingBox();
+    if (boundingBox) {
+      const x = boundingBox.x + boundingBox.width / 2 + randomBetween(-10, 10);
+      const y = boundingBox.y + boundingBox.height / 2 + randomBetween(-10, 10);
+      await page.mouse.move(x, y, { steps: randomBetween(5, 10) });
+      await delay(randomBetween(50, 200));
+      await page.mouse.click(x, y);
+      console.log(`Clicked interactive element at (${x}, ${y})`);
     }
+  } else {
+    const x = randomBetween(50, 1200);
+    const y = randomBetween(100, 700);
+    await page.mouse.move(x, y, { steps: randomBetween(5, 10) });
+    await delay(randomBetween(50, 200));
+    await page.mouse.click(x, y);
+    console.log(`Clicked at (${x}, ${y})`);
+  }
+  await delay(randomBetween(200, 500));
+}
 
-    const element = linkHandle.asElement();
-    if (!element) {
-      console.log('Link is not a valid element.');
-      await browser.close();
-      return;
-    }
-
-    const box = await element.boundingBox();
-    if (!box) {
-      //console.log('Bounding box not found.');
-      await browser.close();
-      return;
-    }
-
-    // Simulate human-like mouse interaction
-    await page.mouse.move(box.x + 5, box.y + 5, { steps: 15 });
-    await delay(randomBetween(300, 800));
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 10 });
-    await delay(randomBetween(300, 800));
-    await element.hover();
-    await delay(randomBetween(200, 400));
-
-    // Get the href of the target link
-    const href = await page.evaluate(el => el.href, element);
-    if (!href) {
-      console.log('Link href not found.');
-      await browser.close();
-      return;
-    }
-
-    // Simulate a frontend click with Referer header
+async function humanInteraction(page) {
+  const hoverableElements = await page.$$('a, button, div, img');
+  if (hoverableElements.length > 0 && Math.random() < 0.8) {
+    const randomElement = hoverableElements[randomBetween(0, hoverableElements.length - 1)];
     try {
-      await page.setExtraHTTPHeaders({ 'Referer': 'https://www.google.com/' });
-      await page.evaluate((el) => {
-        const clickEvent = new MouseEvent('click', {
-          view: window,
-          bubbles: true,
-          cancelable: true,
-        });
-        el.dispatchEvent(clickEvent);
-      }, element);
-      await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 });
-    } catch (error) {
-      //console.error('Failed to navigate after clicking link:', error.message);
-      await browser.close();
-      return;
+      await randomElement.hover({ timeout: 5000 });
+      console.log('Hovered over an element');
+      await delay(randomBetween(200, 600));
+    } catch (e) {
+      console.log(`Hover failed: ${e.message}`);
     }
+  }
 
-    // Verify GA4 tracking is present
-    const ga4Present = await page.evaluate(() => {
-      return !!window.gtag || !!document.querySelector('script[src*="gtag/js"]');
-    });
-    //console.log(`GA4 tracking present: ${ga4Present}`);
+  const input = await page.$('input[type="text"], input[type="search"]');
+  if (input && Math.random() < 0.5) {
+    const searchTerms = ['test query', 'example', 'search term', 'hello world'];
+    const term = searchTerms[randomBetween(0, searchTerms.length - 1)];
+    await input.type(term, { delay: randomBetween(80, 150) });
+    console.log(`Typed "${term}" in input field`);
+    await delay(randomBetween(500, 1500));
+  }
 
-    const doSearch = Math.random() < 0.5;
+  if (Math.random() < 0.3) {
+    await randomClick(page);
+  }
+}
 
-    if (!doSearch) {
-      const stayTime = randomBetween(30000, 90000);
-      //console.log(`Staying on page for ${(stayTime / 1000).toFixed(3)}s with random scrolls...`);
-      const scrollStart = Date.now();
+async function handlePopUp(page) {
+  try {
+    const popUpSelectors = [
+      'div[class*="modal"]',
+      'div[class*="popup"]',
+      'div[class*="overlay"]',
+      'div[id*="modal"]',
+      'div[id*="popup"]',
+      'div[role="dialog"]',
+      'div[aria-modal="true"]'
+    ].join(', ');
 
-      while (Date.now() - scrollStart < stayTime) {
-        const scrollTo = ['top', 'center', 'footer'][Math.floor(Math.random() * 3)];
+    const popUp = await page.$(popUpSelectors);
+    if (popUp) {
+      console.log('Pop-up detected');
 
-        try {
-          await page.evaluate(async (scrollTo) => {
-            const delay = ms => new Promise(res => setTimeout(res, ms));
-            let selector = '';
+      const closeButtonSelectors = [
+        'button[class*="close"]',
+        'button[aria-label*="close"]',
+        'button[aria-label*="dismiss"]',
+        'a[class*="close"]',
+        'div[class*="close"]',
+        'button[id*="close"]',
+        'span[class*="close"]',
+        '[onclick*="close"]',
+        'button:has(svg)',
+        'button:near([class*="modal"], 50)',
+        '[class*="modal"] button'
+      ].join(', ');
 
-            switch (scrollTo) {
-              case 'top':
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                break;
-              case 'center':
-                selector = 'h2';
-                break;
-              case 'footer':
-                selector = 'footer#colophon.site-footer';
-                break;
-            }
-
-            if (selector) {
-              const el = document.querySelector(selector);
-              if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }
-
-            await delay(Math.floor(Math.random() * 2000) + 1500);
-          }, scrollTo);
-        } catch (error) {
-          //console.error('Error during scrolling:', error.message);
+      const closeButton = await popUp.$(closeButtonSelectors);
+      if (closeButton) {
+        const boundingBox = await closeButton.boundingBox();
+        if (boundingBox) {
+          const x = boundingBox.x + boundingBox.width / 2;
+          const y = boundingBox.y + boundingBox.height / 2;
+          await page.mouse.move(x, y, { steps: 5 });
+          await delay(randomBetween(50, 150));
+          await closeButton.click();
+          console.log('Closed pop-up via close button');
+          await delay(1000);
+          return true;
         }
-
-        await delay(randomBetween(3000, 6000));
       }
 
-      //console.log('Scrolling back up...');
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await delay(randomBetween(3000, 5000));
+      await page.keyboard.press('Escape');
+      console.log('Attempted to close pop-up with Escape key');
+      await delay(1000);
+      return true;
+    }
+    console.log('No pop-up detected');
+    return false;
+  } catch (e) {
+    console.log(`Error handling pop-up: ${e.message}`);
+    return false;
+  }
+}
 
-      const topMenuIds = ['menu-item-1136', 'menu-item-1139', 'menu-item-1143'];
-      const footerMenuIds = ['menu-item-1146', 'menu-item-1144', 'menu-item-1147', 'menu-item-1148'];
+async function interactWithUrl(proxy, userAgent, url) {
+  const width = randomBetween(1280, 1440);
+  const height = randomBetween(720, 900);
+  const context = await firefox.launchPersistentContext('', {
+    headless: false,
+    viewport: { width, height },
+    userAgent,
+    proxy: { server: `http://${proxy}` }
+  });
 
-      const fromTop = Math.random() < 0.5;
-      const menuList = fromTop ? topMenuIds : footerMenuIds;
-      const chosenId = menuList[Math.floor(Math.random() * menuList.length)];
+  const page = await context.newPage();
+  await spoofDetection(page);
 
-      //console.log(`Attempting to click menu item: ${chosenId}`);
+  try {
+    await page.goto(url, { waitUntil: 'load', timeout: 15000 });
 
-      if (!fromTop) {
-        //console.log('Scrolling to footer again...');
-        await page.evaluate(() => {
-          const footer = document.querySelector('footer#colophon.site-footer');
-          if (footer) footer.scrollIntoView({ behavior: 'smooth' });
-        });
-        await delay(randomBetween(3000, 6000));
-      }
-
-      const targetEl = await page.$(`#${chosenId}`);
-      if (targetEl) {
-        const box = await targetEl.boundingBox();
-        if (box) {
-          await page.mouse.move(box.x, box.y, { steps: randomBetween(10, 25) });
-          await delay(randomBetween(300, 800));
-          await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: randomBetween(10, 25) });
-          await delay(randomBetween(200, 500));
-          await targetEl.hover();
-          await delay(randomBetween(200, 600));
-          try {
-            await Promise.all([
-              targetEl.click(),
-              page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
-            ]);
-            //console.log('Menu item clicked.');
-
-            const newStayTime = randomBetween(10000, 60000);
-            //console.log(`Staying on new page for ${(newStayTime / 1000).toFixed(3)}s with scrolling to footer...`);
-
-            const endTime = Date.now() + newStayTime;
-            while (Date.now() < endTime) {
-              await page.evaluate(() => {
-                const footer = document.querySelector('footer#colophon.site-footer');
-                if (footer) {
-                  footer.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-              });
-              await delay(randomBetween(3000, 6000));
-            }
-          } catch (error) {
-            //console.error('Failed to navigate after clicking menu item:', error.message);
-          }
-        } else {
-          //console.log('Element box not found.');
-        }
-      } else {
-        //console.log('Menu element not found.');
-      }
+    const content = await page.content();
+    if (content.includes("Anonymous Proxy detected")) {
+      console.log(`Rejected proxy (${proxy}): Detected as anonymous proxy.`);
     } else {
-      //console.log('Random behavior chosen: Simulating search...');
+      console.log(`Loaded: ${url}`);
+      await delay(15000);
 
-      const artists = [
-        'Beyonce',
-        'Taylor Swift',
-        'Drake',
-        'Billie Eilish',
-        'Ed Sheeran',
-        'Rihanna',
-        'Justin Bieber',
-        'Adele',
-        'Harry Styles',
-      ];
+      await handlePopUp(page);
+      await humanScroll(page);
+      await randomClick(page);
+      await humanInteraction(page);
+    }
+  } catch (e) {
+    console.log(`Error with proxy ${proxy}:`, e.message);
+  } finally {
+    await context.close();
+    console.log(`Closed browser for proxy: ${proxy}\n`);
+  }
+}
 
-      const keyword = artists[Math.floor(Math.random() * artists.length)];
+async function fetchProxies() {
+  const res = await axios.get('https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=3000&country=all&ssl=all&anonymity=elite');
+  return res.data.split('\n').map(p => p.trim()).filter(Boolean).slice(0, 500);
+}
 
-      const searchBox = await page.$('#search-input');
-      if (searchBox) {
-        const box = await searchBox.boundingBox();
-        if (box) {
-          await page.mouse.move(box.x + 5, box.y + 5, { steps: 10 });
-          await delay(500);
-          await searchBox.click();
-          await delay(400);
-          await page.keyboard.type(keyword, { delay: randomBetween(100, 200) });
-          await page.keyboard.press('Enter');
-          //console.log(`Typed and searched for: "${keyword}"`);
+async function isProxyValid(proxy) {
+  const agent = new HttpsProxyAgent(`http://${proxy}`);
+  try {
+    const test = await axios.get('https://example.com/', {
+      httpAgent: agent,
+      httpsAgent: agent,
+      timeout: 4000
+    });
 
-          try {
-            await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
-          } catch (error) {
-            //console.log('Navigation after search did not complete, continuing...');
+    if (test.status === 200) {
+      const geo = await axios.get(`https://ipapi.co/${proxy.split(':')[0]}/json/`, { timeout: 4000 });
+      const country = geo.data?.country;
+      if (country === 'US' || country === 'CA') {
+        console.log(`Excluded proxy from ${country}: ${proxy}`);
+        return null;
+      }
+      return { proxy, country };
+    }
+  } catch (_) {}
+  return null;
+}
+
+function chunk(array, size) {
+  return Array.from({ length: Math.ceil(array.length / size) }, (_, i) =>
+    array.slice(i * size, i * size + size)
+  );
+}
+
+(async () => {
+  const url = 'https://convictionfoolishbathroom.com/spgbsmce6y?key=b7b18ab0269611b5429b01935d29fe65';
+  const tested = new Set();
+
+  while (true) {
+    const proxies = await fetchProxies();
+    console.log(`Testing ${proxies.length} proxies...\n`);
+    let foundAny = false;
+
+    for (const batch of chunk(proxies, 10)) {
+      const results = await Promise.allSettled(batch.map(async proxy => {
+        if (tested.has(proxy)) return null;
+        return await isProxyValid(proxy);
+      }));
+
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) {
+          foundAny = true;
+          const { proxy } = result.value;
+
+          for (let i = 0; i < 5; i++) {
+            const userAgent = getRandomUserAgent('user_agents.txt');
+            console.log(`Using User-Agent: ${userAgent} (Attempt ${i + 1}/5 for proxy ${proxy})`);
+            await interactWithUrl(proxy, userAgent, url);
           }
-          await delay(randomBetween(3000, 6000));
 
-          await page.evaluate(() => {
-            const center = document.querySelector('h2');
-            if (center) center.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          });
-
-          await delay(randomBetween(2000, 5000));
-
-          const tracks = await page.$$('.spotify-track');
-          if (tracks.length > 0) {
-            const chosen = tracks[Math.floor(Math.random() * tracks.length)];
-
-            const anchor = await chosen.$('a[href*="open.spotify.com/track"]');
-            if (anchor) {
-              const box = await anchor.boundingBox();
-              if (box) {
-                await page.mouse.move(box.x + 10, box.y + 10, { steps: 15 });
-                await delay(randomBetween(300, 600));
-                await anchor.hover();
-                await delay(randomBetween(200, 400));
-                await anchor.click();
-                //console.log('Clicked on Spotify track link.');
-              } else {
-                //console.log('No Spotify <a> link found inside track.');
-              }
-            } else {
-              //console.log('No Spotify tracks found.');
-            }
-          } else {
-            //console.log('No Spotify tracks found.');
-          }
-        } else {
-          //console.log('Search box bounding box not found.');
+          tested.add(proxy);
         }
-      } else {
-        //console.log('Search box not found.');
       }
     }
 
-    //console.log('Closing browser...');
-    await browser.close();
-  } catch (error) {
-    //console.error('Unexpected error:', error.message);
-    if (browser) await browser.close();
+    if (!foundAny) {
+      console.log('No valid proxy found in this batch. Will fetch a new list...\n');
+      await delay(3000);
+    }
   }
 })();
