@@ -1,6 +1,6 @@
 const fs = require('fs');
-const axios = require('axios');
 const { firefox } = require('playwright');
+const axios = require('axios');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 
 function getRandomUserAgent(filePath) {
@@ -8,7 +8,9 @@ function getRandomUserAgent(filePath) {
     .split('\n')
     .map(ua => ua.trim())
     .filter(ua => ua.length > 0);
-  return userAgents[Math.floor(Math.random() * userAgents.length)];
+  const selectedUserAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
+  console.log(`Selected user agent: ${selectedUserAgent}`);
+  return selectedUserAgent;
 }
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
@@ -20,8 +22,8 @@ async function spoofDetection(page) {
     Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
     Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
     Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 0 });
-    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => Math.floor(Math.random() * 7) + 2 });
-    Object.defineProperty(navigator, 'deviceMemory', { get: () => Math.floor(Math.random() * 13) + 4 });
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4 });
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
 
     Object.defineProperty(navigator, 'plugins', {
       get: () => [
@@ -60,238 +62,239 @@ async function spoofDetection(page) {
   });
 }
 
-async function humanScroll(page) {
-  const maxScroll = await page.evaluate(() => document.body.scrollHeight);
-  let currentY = 0;
-  const viewportHeight = randomBetween(600, 900);
-
-  while (currentY < maxScroll) {
-    const step = randomBetween(50, 200);
-    currentY = Math.min(currentY + step, maxScroll);
-    await page.evaluate(_y => window.scrollTo(0, _y), currentY);
-    await delay(randomBetween(100, 300));
-    if (Math.random() < 0.2) await delay(randomBetween(500, 1500));
-  }
-
-  currentY = Math.max(currentY - randomBetween(viewportHeight / 2, viewportHeight), 0);
-  await page.evaluate(_y => window.scrollTo(0, _y), currentY);
-  await delay(randomBetween(200, 600));
-
-  await delay(randomBetween(500, 2000));
-}
-
-async function randomClick(page) {
-  const elements = await page.$$('a, button, [role="button"], [onclick]');
-  if (elements.length > 0 && Math.random() < 0.7) {
-    const randomElement = elements[randomBetween(0, elements.length - 1)];
-    const boundingBox = await randomElement.boundingBox();
-    if (boundingBox) {
-      const x = boundingBox.x + boundingBox.width / 2 + randomBetween(-10, 10);
-      const y = boundingBox.y + boundingBox.height / 2 + randomBetween(-10, 10);
-      await page.mouse.move(x, y, { steps: randomBetween(5, 10) });
-      await delay(randomBetween(50, 200));
-      await page.mouse.click(x, y);
-      //console.log(`Clicked interactive element at (${x}, ${y})`);
-    }
-  } else {
-    const x = randomBetween(50, 1200);
-    const y = randomBetween(100, 700);
-    await page.mouse.move(x, y, { steps: randomBetween(5, 10) });
-    await delay(randomBetween(50, 200));
-    await page.mouse.click(x, y);
-    //console.log(`Clicked at (${x}, ${y})`);
-  }
-  await delay(randomBetween(200, 500));
-}
-
-async function humanInteraction(page) {
-  const hoverableElements = await page.$$('a, button, div, img');
-  if (hoverableElements.length > 0 && Math.random() < 0.8) {
-    const randomElement = hoverableElements[randomBetween(0, hoverableElements.length - 1)];
-    try {
-      await randomElement.hover({ timeout: 5000 });
-      //console.log('Hovered over an element');
-      await delay(randomBetween(200, 600));
-    } catch (e) {
-      //console.log(`Hover failed: ${e.message}`);
-    }
-  }
-
-  const input = await page.$('input[type="text"], input[type="search"]');
-  if (input && Math.random() < 0.5) {
-    const searchTerms = ['test query', 'example', 'search term', 'hello world'];
-    const term = searchTerms[randomBetween(0, searchTerms.length - 1)];
-    await input.type(term, { delay: randomBetween(80, 150) });
-    //console.log(`Typed "${term}" in input field`);
-    await delay(randomBetween(500, 1500));
-  }
-
-  if (Math.random() < 0.3) {
-    await randomClick(page);
-  }
-}
-
-async function handlePopUp(page) {
+async function handleCookieDialog(page) {
   try {
-    const popUpSelectors = [
-      'div[class*="modal"]',
-      'div[class*="popup"]',
-      'div[class*="overlay"]',
-      'div[id*="modal"]',
-      'div[id*="popup"]',
-      'div[role="dialog"]',
-      'div[aria-modal="true"]'
-    ].join(', ');
+    const selectors = [
+      'button:has-text("Accept")',
+      'button:has-text("AGREE")',
+      'button:has-text("I agree")',
+      'text="Accept All"',
+      'text="Got it"',
+      '[id*="cookie"] button:has-text("Accept")',
+      '[class*="cookie"] button:has-text("Accept")',
+    ];
+    for (const selector of selectors) {
+      const button = await page.$(selector);
+      if (button) {
+        await button.click();
+        console.log('Cookie dialog accepted.');
+        return true;
+      }
+    }
+    return false;
+  } catch (err) {
+    console.log('No cookie dialog detected or error during click.');
+    return false;
+  }
+}
 
-    const popUp = await page.$(popUpSelectors);
-    if (popUp) {
-      console.log('Pop-up detected');
+async function humanScrollToFooter(page) {
+  try {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await delay(randomBetween(500, 1500));
 
-      const closeButtonSelectors = [
-        'button[class*="close"]',
-        'button[aria-label*="close"]',
-        'button[aria-label*="dismiss"]',
-        'a[class*="close"]',
-        'div[class*="close"]',
-        'button[id*="close"]',
-        'span[class*="close"]',
-        '[onclick*="close"]',
-        'button:has(svg)',
-        'button:near([class*="modal"], 50)',
-        '[class*="modal"] button'
-      ].join(', ');
+    const footer = await page.$('footer');
+    if (!footer) {
+      console.log('Footer not found. Skipping scroll.');
+      return;
+    }
 
-      const closeButton = await popUp.$(closeButtonSelectors);
-      if (closeButton) {
-        const boundingBox = await closeButton.boundingBox();
-        if (boundingBox) {
-          const x = boundingBox.x + boundingBox.width / 2;
-          const y = boundingBox.y + boundingBox.height / 2;
-          await page.mouse.move(x, y, { steps: 5 });
-          await delay(randomBetween(50, 150));
-          await closeButton.click();
-          //console.log('Closed pop-up via close button');
-          await delay(1000);
-          return true;
+    const boundingBox = await footer.boundingBox();
+    const targetY = boundingBox?.y || await page.evaluate(() => document.body.scrollHeight);
+
+    let currentY = 0;
+    while (currentY < targetY) {
+      const step = randomBetween(300, 600);
+      currentY = Math.min(currentY + step, targetY);
+      await page.evaluate(y => window.scrollTo(0, y), currentY);
+      await delay(randomBetween(30, 80));
+      if (Math.random() < 0.1) await delay(randomBetween(150, 400));
+    }
+
+    if (Math.random() < 0.5) {
+      const backtrack = randomBetween(80, 200);
+      await page.evaluate(y => window.scrollTo(0, y), currentY - backtrack);
+      await delay(randomBetween(200, 600));
+    }
+
+    console.log('Finished human-like scroll to footer.');
+  } catch (e) {
+    console.log(`Scroll error: ${e.message}`);
+  }
+}
+
+async function randomlyClickAd(page) {
+  const options = ['specificIframeAd', 'highestZIndexIframeAd'];
+  const choice = options[Math.floor(Math.random() * options.length)];
+  let adClicked = false;
+
+  if (choice === 'specificIframeAd') {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const iframes = await page.$$('iframe[allowtransparency="true"][scrolling="no"][frameborder="0"][framespacing="0"][width="468"][height="60"][src="about:blank"]');
+    if (iframes.length > 0) {
+      const ad = iframes[0];
+      await ad.scrollIntoViewIfNeeded();
+      const box = await ad.boundingBox();
+      if (box) {
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        console.log('Clicked on 468x60 iframe ad (specific attributes).');
+        adClicked = true;
+        return adClicked;
+      }
+    }
+    console.log('468x60 iframe ad not found or clickable (specific attributes).');
+  } else {
+    const iframes = await page.$$('iframe');
+    if (iframes.length > 0) {
+      let highestZIndex = -1;
+      let targetIframe = null;
+
+      for (const iframe of iframes) {
+        const style = await iframe.evaluate(el => window.getComputedStyle(el).zIndex);
+        const zIndex = style === 'auto' ? 0 : parseInt(style, 10);
+        if (zIndex > highestZIndex) {
+          highestZIndex = zIndex;
+          targetIframe = iframe;
         }
       }
 
-      await page.keyboard.press('Escape');
-      //console.log('Attempted to close pop-up with Escape key');
-      await delay(1000);
-      return true;
+      if (targetIframe) {
+        const box = await targetIframe.boundingBox();
+        if (box) {
+          await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+          console.log('Clicked on iframe ad.');
+          adClicked = true;
+          return adClicked;
+        }
+      }
     }
-    console.log('No pop-up detected');
-    return false;
-  } catch (e) {
-    //console.log(`Error handling pop-up: ${e.message}`);
-    return false;
+    console.log('No iframe with valid z-index found.');
   }
+  return adClicked;
 }
 
-async function interactWithUrl(proxy, userAgent, url) {
-  const width = randomBetween(1280, 1440);
-  const height = randomBetween(720, 900);
-  const context = await firefox.launchPersistentContext('', {
-    headless: false,
-    viewport: { width, height },
-    userAgent,
-    proxy: { server: `http://${proxy}` }
-  });
+let testedProxies = new Set();
+let blacklistedProxies = new Set();
+let currentProxy = null;
+let proxyUseCount = 0;
+let proxyList = [];
 
-  const page = await context.newPage();
-  await spoofDetection(page);
-
-  try {
-    await page.goto(url, { waitUntil: 'load', timeout: 15000 });
-
-    const content = await page.content();
-    if (content.includes("Anonymous Proxy detected")) {
-      //console.log(`Rejected proxy (${proxy}): Detected as anonymous proxy.`);
-    } else {
-      //console.log(`Loaded: ${url}`);
-      await delay(15000);
-
-      await handlePopUp(page);
-      await humanScroll(page);
-      await randomClick(page);
-      await humanInteraction(page);
-    }
-  } catch (e) {
-    //console.log(`Error with proxy ${proxy}:`, e.message);
-  } finally {
-    await context.close();
-    //console.log(`Closed browser for proxy: ${proxy}\n`);
-  }
-}
-
-async function fetchProxies() {
+async function fetchProxiesFromAPI() {
+  console.log("Fetching new proxy batch...");
   const res = await axios.get('https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=3000&country=all&ssl=all&anonymity=elite');
-  return res.data.split('\n').map(p => p.trim()).filter(Boolean).slice(0, 500);
+  proxyList = res.data.trim().split('\n').map(p => p.trim()).filter(Boolean);
 }
 
-async function isProxyValid(proxy) {
-  const agent = new HttpsProxyAgent(`http://${proxy}`);
-  try {
-    const test = await axios.get('https://example.com/', {
-      httpAgent: agent,
-      httpsAgent: agent,
-      timeout: 4000
+async function getReusableProxy() {
+  while (true) {
+    if (currentProxy && proxyUseCount < 5) {
+      proxyUseCount++;
+      console.log(`Reusing proxy [${proxyUseCount}/5]: ${currentProxy}`);
+      return currentProxy;
+    }
+
+    currentProxy = null;
+    proxyUseCount = 0;
+
+    if (proxyList.length === 0) {
+      await fetchProxiesFromAPI();
+    }
+
+    while (proxyList.length > 0) {
+      const proxy = proxyList.shift();
+      if (testedProxies.has(proxy) || blacklistedProxies.has(proxy)) continue;
+
+      try {
+        await axios.get(
+          'https://wixnation.com/wp-content/uploads/2025/02/cropped-IMG-20250126-WA0001-removebg-preview-removebg-preview.png',
+          { httpsAgent: new HttpsProxyAgent(`http://${proxy}`), timeout: 5000 }
+        );
+        currentProxy = proxy;
+        proxyUseCount = 1;
+        testedProxies.add(proxy);
+        console.log(`New valid proxy found: ${proxy}`);
+        return proxy;
+      } catch {
+        testedProxies.add(proxy);
+      }
+    }
+
+    console.log("All proxies in batch exhausted. Fetching new batch...");
+    await fetchProxiesFromAPI();
+  }
+}
+
+(async function main() {
+  while (true) {
+    const proxy = await getReusableProxy();
+    const userAgent = getRandomUserAgent('user_agents.txt');
+
+    const urls = [
+      'https://wixnation.com/blog.html/',
+      'https://wixnation.com/blog.html/'
+    ];
+    const selectedUrl = urls[Math.floor(Math.random() * urls.length)];
+    const width = randomBetween(1280, 1440);
+    const height = randomBetween(720, 900);
+
+    const context = await firefox.launchPersistentContext('', {
+      headless: false,
+      proxy: { server: `http://${proxy}` },
+      viewport: { width, height },
+      userAgent
     });
 
-    if (test.status === 200) {
-      const geo = await axios.get(`https://ipapi.co/${proxy.split(':')[0]}/json/`, { timeout: 4000 });
-      const country = geo.data?.country;
-      if (country === 'US' || country === 'CA') {
-        //console.log(`Excluded proxy from ${country}: ${proxy}`);
-        return null;
-      }
-      return { proxy, country };
-    }
-  } catch (_) {}
-  return null;
-}
+    const page = await context.newPage();
+    await spoofDetection(page);
 
-function chunk(array, size) {
-  return Array.from({ length: Math.ceil(array.length / size) }, (_, i) =>
-    array.slice(i * size, i * size + size)
-  );
-}
-
-(async () => {
-  const url = 'https://convictionfoolishbathroom.com/spgbsmce6y?key=b7b18ab0269611b5429b01935d29fe65';
-  const tested = new Set();
-
-  while (true) {
-    const proxies = await fetchProxies();
-    //console.log(`Testing ${proxies.length} proxies...\n`);
-    let foundAny = false;
-
-    for (const batch of chunk(proxies, 10)) {
-      const results = await Promise.allSettled(batch.map(async proxy => {
-        if (tested.has(proxy)) return null;
-        return await isProxyValid(proxy);
-      }));
-
-      for (const result of results) {
-        if (result.status === 'fulfilled' && result.value) {
-          foundAny = true;
-          const { proxy } = result.value;
-
-          for (let i = 0; i < 5; i++) {
-            const userAgent = getRandomUserAgent('user_agents.txt');
-            //console.log(`Using User-Agent: ${userAgent} (Attempt ${i + 1}/5 for proxy ${proxy})`);
-            await interactWithUrl(proxy, userAgent, url);
-          }
-
-          tested.add(proxy);
+    try {
+      await page.goto(selectedUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: 15000,
+        extraHTTPHeaders: {
+          Referer: 'https://www.google.com/'
         }
-      }
-    }
+      });
 
-    if (!foundAny) {
-      //console.log('No valid proxy found in this batch. Will fetch a new list...\n');
-      await delay(3000);
+      console.log(`Opened: ${selectedUrl}`);
+      await delay(20000);
+
+      // First attempt to handle cookie dialog
+      let cookieDialogHandled = await handleCookieDialog(page);
+
+      // If cookie dialog not found, scroll and try again
+      if (!cookieDialogHandled) {
+        await humanScrollToFooter(page);
+        await handleCookieDialog(page);
+      }
+
+      const ad = await page.$('iframe[allowtransparency="true"][scrolling="no"][frameborder="0"][framespacing="0"][width="468"][height="60"][src="about:blank"]');
+      if (!ad) {
+        console.log('Proxy detected');
+        blacklistedProxies.add(currentProxy);
+        currentProxy = null;
+        proxyUseCount = 0;
+        await context.close();
+        continue;
+      }
+
+      console.log('No proxy');
+
+      // If cookie dialog was handled initially, scroll hasn't happened yet, so do it now
+      if (cookieDialogHandled) {
+        await humanScrollToFooter(page);
+      }
+
+      const adClicked = await randomlyClickAd(page);
+      if (adClicked) {
+        console.log('Waiting 10 seconds after successful ad click.');
+        await delay(10000);
+      }
+
+    } catch (e) {
+      console.log(`Error: ${e.message}`);
+    } finally {
+      await context.close();
     }
   }
 })();
