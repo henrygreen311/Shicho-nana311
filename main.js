@@ -259,7 +259,7 @@ function chunk(array, size) {
 }
 
 (async () => {
-  const url = 'https://convictionfoolishbathroom.com/spgbsmce6y?key=b7b18ab0269611b5429b01935d29fe65';
+  const url = 'https://otieu.com/4/9334857';
   const tested = new Set();
 
   while (true) {
