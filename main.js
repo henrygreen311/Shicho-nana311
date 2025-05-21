@@ -170,7 +170,7 @@ async function handlePopUp(page) {
           await page.mouse.move(x, y, { steps: 5 });
           await delay(randomBetween(50, 150));
           await closeButton.click();
-          //console.log('Closed pop-up via close button');
+          console.log('Closed pop-up via close button');
           await delay(1000);
           return true;
         }
@@ -181,7 +181,7 @@ async function handlePopUp(page) {
       await delay(1000);
       return true;
     }
-    //console.log('No pop-up detected');
+    console.log('No pop-up detected');
     return false;
   } catch (e) {
     //console.log(`Error handling pop-up: ${e.message}`);
