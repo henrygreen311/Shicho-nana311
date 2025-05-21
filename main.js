@@ -259,7 +259,7 @@ function chunk(array, size) {
 }
 
 (async () => {
-  const url = 'https://otieu.com/4/9334857';
+  const url = 'https://www.profitableratecpm.com/hr3d1npcn1?key=45bb161f449f212f24c044a29ec8280c';
   const tested = new Set();
 
   while (true) {
